@@ -7,74 +7,40 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.MathHelper;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-import java.lang.reflect.Field;
-import java.util.Arrays;
 import java.util.List;
 
 public class GuiRenderer
 {
-    protected Minecraft mc;
-    protected boolean replace_gui;
-    protected List chat_messages = null;
-    protected GuiNewChat chat_gui = null;
-    protected int chat_scroll = 0;
-    protected boolean is_scrolled = false;
+    private Minecraft mc;
+    private boolean replace_gui;
+    private List chat_messages = null;
 
-    protected static final int CHAT_HEIGHT = (-19 * 9) - 9;
+    private static final int CHAT_HEIGHT = (-19 * 9) - 9;
+    private String[] special_words;
 
-    public GuiRenderer(Minecraft mcIn)
+    GuiRenderer(Minecraft mcIn)
     {
         mc = mcIn;
         replace_gui = true;
     }
 
-    public void drawChat(int update_counter, int posX, int posY)
+    private void drawChat(int update_counter, int posX, int posY)
     {
         // Push chat gui start location onto GL state matrix.
         GlStateManager.pushMatrix();
         GlStateManager.translate(posX, posY, 0.0F);
 
-        chat_gui = mc.ingameGUI.getChatGUI();
+        GuiNewChat chat_gui = mc.ingameGUI.getChatGUI();
 
-        try
-        {
-            Field private_scroll_pos = GuiNewChat.class.getDeclaredField("scrollPos");
-            private_scroll_pos.setAccessible(true);
-            chat_scroll = (Integer) private_scroll_pos.get(chat_gui);
-
-            Field private_is_scrolled = GuiNewChat.class.getDeclaredField("isScrolled");
-            private_is_scrolled.setAccessible(true);
-            is_scrolled = (Boolean) private_is_scrolled.get(chat_gui);
-        } catch (NoSuchFieldException nsfe)
-        {
-            replace_gui = false;
-            return;
-        } catch (IllegalAccessException iae)
-        {
-            replace_gui = false;
-            return;
-        }
+        int chat_scroll;
+        chat_scroll = ObfuscationReflectionHelper.getPrivateValue(GuiNewChat.class, chat_gui, "field_146250_j");
 
         if (chat_messages == null)
         {
-            // Get handles to private info of GuiNewChat. Stop intercepting
-            // chat render requests if this fails (fall back to vanilla).
-            try
-            {
-                Field private_chat_messages = GuiNewChat.class.getDeclaredField("field_146253_i");
-                private_chat_messages.setAccessible(true);
-                chat_messages = (List) private_chat_messages.get(chat_gui);
-            } catch (NoSuchFieldException nsfe)
-            {
-                replace_gui = false;
-                return;
-            } catch (IllegalAccessException iae)
-            {
-                replace_gui = false;
-                return;
-            }
+            chat_messages = ObfuscationReflectionHelper.getPrivateValue(GuiNewChat.class, chat_gui, "field_146253_i");
         }
 
         if (this.mc.gameSettings.chatVisibility != EntityPlayer.EnumChatVisibility.HIDDEN)
@@ -90,9 +56,9 @@ public class GuiRenderer
                 GlStateManager.scale(chat_scale, chat_scale, 1.0F);
                 int num_visible_messages = 0;
 
-                for (int msg_pos = 0; msg_pos + this.chat_scroll < this.chat_messages.size() && msg_pos < chat_gui.getLineCount(); ++msg_pos)
+                for (int msg_pos = 0; msg_pos + chat_scroll < this.chat_messages.size() && msg_pos < chat_gui.getLineCount(); ++msg_pos)
                 {
-                    ChatLine chatline = (ChatLine) this.chat_messages.get(msg_pos + this.chat_scroll);
+                    ChatLine chatline = (ChatLine) this.chat_messages.get(msg_pos + chat_scroll);
 
                     if (chatline != null)
                     {
@@ -134,6 +100,7 @@ public class GuiRenderer
                                 {
                                     color = actual_opacity / 2 << 24;
                                 }
+                                //noinspection SuspiciousNameCombination
                                 GuiNewChat.drawRect(0, msg_x - 9, width + 4, msg_x, color);
                                 String s = chatline.getChatComponent().getFormattedText();
                                 GlStateManager.enableBlend();
@@ -176,15 +143,13 @@ public class GuiRenderer
         GlStateManager.popMatrix();
     }
 
-    protected boolean ShouldHaveHighlight(ChatLine line)
+    private boolean ShouldHaveHighlight(ChatLine line)
     {
         // TODO load this from config
-        final String[] special_words_a = {"staff"};
-        final List<String> special_words = Arrays.asList(special_words_a);
         boolean found = false;
         for (String word : special_words)
         {
-            if (line.getChatComponent().getUnformattedText().contains(word))
+            if (line.getChatComponent().getUnformattedText().toLowerCase().contains(word))
             {
                 found = true;
                 break;
@@ -207,5 +172,10 @@ public class GuiRenderer
                 this.drawChat(this.mc.ingameGUI.getUpdateCounter(), chat_event.posX, chat_event.posY);
             }
         }
+    }
+
+    void set_special_words(String[] special_words)
+    {
+        this.special_words = special_words;
     }
 }
