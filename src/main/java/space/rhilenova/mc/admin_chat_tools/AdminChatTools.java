@@ -3,6 +3,7 @@ package space.rhilenova.mc.admin_chat_tools;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.Mod.EventHandler;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
@@ -32,5 +33,6 @@ public class AdminChatTools
     public void init(FMLInitializationEvent event)
     {
         MinecraftForge.EVENT_BUS.register(gui_renderer);
+        FMLCommonHandler.instance().bus().register(new KeyHandler(Minecraft.getMinecraft()));
     }
 }
